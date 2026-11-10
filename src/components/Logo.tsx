@@ -41,7 +41,7 @@ export const Logo: React.FC<LogoProps> = ({
         variant === 'isotype'
           ? 'w-8 h-8'
           : tone === 'light'
-          ? 'h-9 w-auto'
+          ? 'h-8 sm:h-9 w-auto brightness-0 invert'
           : 'h-8 sm:h-9 w-auto'
       } ${className}`}
     />
