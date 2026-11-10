@@ -27,6 +27,8 @@ const MainContent: React.FC = () => {
     goToArticle,
     isAdminMode,
     openCategoryModal,
+    authNotification,
+    clearAuthNotification,
   } = useHelpCenter();
 
   // Featured articles
@@ -36,6 +38,23 @@ const MainContent: React.FC = () => {
     <main className="min-h-screen flex flex-col bg-slate-50/60">
       <AdminBar />
       <Header />
+
+      {/* Signed URL Toast / Notification Banner */}
+      {authNotification && (
+        <div className="bg-[#0F3447] text-white px-4 py-2.5 shadow-md flex items-center justify-between text-xs animate-in fade-in duration-300">
+          <div className="max-w-7xl mx-auto flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-semibold text-emerald-300">{authNotification}</span>
+          </div>
+          <button
+            onClick={clearAuthNotification}
+            className="text-slate-300 hover:text-white p-1 ml-4 focus:outline-none"
+            aria-label="Cerrar aviso"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="flex-1">
         {viewState.type === 'home' && (

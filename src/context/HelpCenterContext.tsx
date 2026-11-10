@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Category, Article, ViewState } from '../types/helpCenter';
 import { INITIAL_CATEGORIES, INITIAL_ARTICLES, ADMIN_AUTHOR } from '../data/initialData';
+import { verifySignedToken } from '../utils/signedAuth';
 
 const STORAGE_KEY_CATEGORIES = 'sitecorp_help_categories_v2';
 const STORAGE_KEY_ARTICLES = 'sitecorp_help_articles_v2';
@@ -16,6 +17,8 @@ interface HelpCenterContextType {
   // Superadmin authentication & mode
   isAdminMode: boolean;
   setIsAdminMode: (admin: boolean) => void;
+  authNotification: string | null;
+  clearAuthNotification: () => void;
   isAdminLoginModalOpen: boolean;
   setIsAdminLoginModalOpen: (open: boolean) => void;
   loginAsAdmin: (tokenOrPassword: string) => boolean;
@@ -98,7 +101,6 @@ export const HelpCenterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Check if superadmin is authenticated
   const [isAdminMode, setIsAdminMode] = useState<boolean>(() => {
     try {
-      // Check for URL query ?admin=true or token
       const params = new URLSearchParams(window.location.search);
       if (params.get('admin') === 'true' || params.get('superadmin') === 'true') {
         localStorage.setItem(STORAGE_KEY_ADMIN_AUTH, 'true');
@@ -110,6 +112,7 @@ export const HelpCenterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   });
 
+  const [authNotification, setAuthNotification] = useState<string | null>(null);
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
   const [viewState, setViewState] = useState<ViewState>({ type: 'home' });
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,6 +145,36 @@ export const HelpCenterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       console.error('Error saving articles', e);
     }
   }, [articles]);
+
+  // Check and verify signed link from app.sitecorp.cu on load
+  useEffect(() => {
+    const checkSignedLink = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const authToken = params.get('auth_token');
+        const sig = params.get('sig');
+
+        if (authToken && sig) {
+          const res = await verifySignedToken(authToken, sig);
+          if (res.valid) {
+            setIsAdminMode(true);
+            localStorage.setItem(STORAGE_KEY_ADMIN_AUTH, 'true');
+            setAuthNotification(`Sesión iniciada como Superadmin (${res.email || 'app.sitecorp.cu'})`);
+            // Clean URL query params to remove tokens from address bar
+            const cleanUrl = window.location.pathname + window.location.hash;
+            window.history.replaceState({}, document.title, cleanUrl);
+          } else {
+            setAuthNotification(`Acceso denegado: ${res.error || 'Token inválido'}`);
+          }
+        }
+      } catch (err) {
+        console.error('Error verificando enlace firmado', err);
+      }
+    };
+    checkSignedLink();
+  }, []);
+
+  const clearAuthNotification = () => setAuthNotification(null);
 
   // Keyboard shortcut listener to discreetly open Superadmin Login: Ctrl + Shift + A
   useEffect(() => {
@@ -379,6 +412,8 @@ export const HelpCenterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setSearchQuery,
         isAdminMode,
         setIsAdminMode,
+        authNotification,
+        clearAuthNotification,
         isAdminLoginModalOpen,
         setIsAdminLoginModalOpen,
         loginAsAdmin,
