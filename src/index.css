@@ -1,0 +1,68 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Official Sitecorp color tokens */
+  --color-brand-50: #F0F6F9;
+  --color-brand-100: #DCEAF1;
+  --color-brand-200: #B8D6E3;
+  --color-brand-300: #85B9D0;
+  --color-brand-400: #4692B4;
+  --color-brand-500: #123F55;
+  --color-brand-600: #0F3447;
+  --color-brand-700: #0C2A3A;
+  --color-brand-800: #09212E;
+  --color-brand-900: #061720;
+
+  --color-teal-50: #F0F9FB;
+  --color-teal-100: #D6F0F5;
+  --color-teal-200: #AEE1EC;
+  --color-teal-300: #75CBDE;
+  --color-teal-400: #38ACCA;
+  --color-teal-500: #1A7B91;
+  --color-teal-600: #166477;
+  --color-teal-700: #145160;
+  --color-teal-800: #12434F;
+  --color-teal-900: #0F3640;
+
+  --color-accent-50: #FEF8F0;
+  --color-accent-100: #FDEEDC;
+  --color-accent-200: #FBDEB9;
+  --color-accent-300: #F8C88B;
+  --color-accent-400: #F5B05A;
+  --color-accent-500: #F49D37;
+  --color-accent-600: #D88224;
+  --color-accent-700: #B0641B;
+  --color-accent-800: #8A4E1A;
+  --color-accent-900: #6E3F17;
+}
+
+:root {
+  --sitecorp-primary: #123F55;
+  --sitecorp-teal: #1A7B91;
+  --sitecorp-accent: #F49D37;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-family: var(--font-sans);
+}
+
+/* Custom scrollbars for clean documentation reading */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(18, 63, 85, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(18, 63, 85, 0.45);
+}
