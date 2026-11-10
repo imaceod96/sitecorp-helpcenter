@@ -6,48 +6,97 @@ import {
   X,
   ShieldCheck,
   KeyRound,
-  ExternalLink,
-  ArrowRight,
+  Mail,
+  Check,
+  AlertCircle,
   Code2,
   Copy,
-  Check,
+  ArrowRight,
   Zap,
+  Settings,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 export const AdminLoginModal: React.FC = () => {
   const {
     isAdminLoginModalOpen,
     setIsAdminLoginModalOpen,
-    loginAsAdmin,
+    loginWithCredentials,
+    updateUserPassword,
+    adminUsers,
   } = useHelpCenter();
 
-  const [activeTab, setActiveTab] = useState<'login' | 'code'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'custom' | 'code'>('login');
+
+  // Login form state
+  const [email, setEmail] = useState('admin@sitecorp.local');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Change password form state
+  const [targetEmail, setTargetEmail] = useState('admin@sitecorp.local');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [changeError, setChangeError] = useState<string | null>(null);
+  const [changeSuccess, setChangeSuccess] = useState<string | null>(null);
+
+  // Code integration tab
   const [copiedCode, setCopiedCode] = useState(false);
   const [generatedTestUrl, setGeneratedTestUrl] = useState<string | null>(null);
 
   if (!isAdminLoginModalOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(false);
+    setErrorMessage(null);
 
-    setTimeout(() => {
-      const ok = loginAsAdmin(password);
+    try {
+      const res = await loginWithCredentials(email, password);
       setLoading(false);
-      if (!ok) {
-        setError(true);
+      if (!res.success) {
+        setErrorMessage(res.error || 'Credenciales incorrectas.');
       } else {
         setPassword('');
       }
-    }, 400);
+    } catch {
+      setLoading(false);
+      setErrorMessage('Error al verificar las credenciales.');
+    }
   };
 
-  const handleAutoValidateWithApp = () => {
-    loginAsAdmin('superadmin');
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangeError(null);
+    setChangeSuccess(null);
+
+    if (newPassword !== confirmPassword) {
+      setChangeError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    const user = adminUsers.find(u => u.email.toLowerCase() === targetEmail.trim().toLowerCase());
+    if (!user) {
+      setChangeError('No se encontró ningún usuario con ese correo.');
+      return;
+    }
+
+    const res = await updateUserPassword(user.id, newPassword);
+    if (res.success) {
+      setChangeSuccess(`Contraseña actualizada con éxito para ${user.email}.`);
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => {
+        setChangeSuccess(null);
+        setActiveTab('login');
+      }, 1500);
+    } else {
+      setChangeError(res.error || 'Error al cambiar la contraseña.');
+    }
   };
 
   const handleGenerateTestUrl = async () => {
@@ -118,14 +167,14 @@ export function HelpCenterAdminButton({ userEmail = "superadmin@sitecorp.cu" }) 
               <Lock className="w-5 h-5 text-[#1A7B91]" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[#123F55]">Acceso Superadministrador</h3>
-              <p className="text-xs text-slate-500">Gestión de apartados y páginas de funcionalidad</p>
+              <h3 className="text-base font-bold text-[#123F55]">Acceso Administrador SiteCorp</h3>
+              <p className="text-xs text-slate-500">Gestión de apartados, páginas de funcionalidades y usuarios</p>
             </div>
           </div>
           <button
             onClick={() => {
               setIsAdminLoginModalOpen(false);
-              setError(false);
+              setErrorMessage(null);
             }}
             className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
           >
@@ -137,52 +186,104 @@ export function HelpCenterAdminButton({ userEmail = "superadmin@sitecorp.cu" }) 
         <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg mt-4 text-xs font-semibold">
           <button
             onClick={() => setActiveTab('login')}
-            className={`flex-1 py-1.5 px-3 rounded-md transition-all text-center ${
+            className={`flex-1 py-1.5 px-2 rounded-md transition-all text-center ${
               activeTab === 'login'
                 ? 'bg-white text-[#123F55] shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Acceso Rápido
+            Iniciar Sesión
+          </button>
+          <button
+            onClick={() => setActiveTab('custom')}
+            className={`flex-1 py-1.5 px-2 rounded-md transition-all text-center flex items-center justify-center gap-1 ${
+              activeTab === 'custom'
+                ? 'bg-white text-[#123F55] shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Settings className="w-3.5 h-3.5 text-slate-500" />
+            <span>Cambiar Contraseña</span>
           </button>
           <button
             onClick={() => setActiveTab('code')}
-            className={`flex-1 py-1.5 px-3 rounded-md transition-all text-center flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-1.5 px-2 rounded-md transition-all text-center flex items-center justify-center gap-1 ${
               activeTab === 'code'
                 ? 'bg-white text-[#123F55] shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Code2 className="w-3.5 h-3.5 text-[#1A7B91]" />
-            <span>Integración app.sitecorp.cu</span>
+            <span>Enlace app.sitecorp.cu</span>
           </button>
         </div>
 
-        {activeTab === 'login' ? (
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        {/* LOGIN TAB */}
+        {activeTab === 'login' && (
+          <form onSubmit={handleLogin} className="mt-5 space-y-4">
+            
+            {/* Quick credentials banner */}
+            <div className="p-3 bg-[#F0F6F9] border border-[#B8D6E3] rounded-xl text-xs text-slate-700">
+              <div className="flex items-center justify-between font-semibold text-[#123F55] mb-1">
+                <span>Usuario Administrador</span>
+                <span className="text-[11px] font-normal text-slate-500">Hash SHA-256</span>
+              </div>
+              <p className="text-slate-600">
+                Email por defecto: <code className="bg-white px-1.5 py-0.5 rounded border border-[#B8D6E3] font-mono text-[#123F55] font-semibold">admin@sitecorp.local</code>
+              </p>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Contraseña o Clave Maestra de Superadmin
+                Correo Electrónico
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setErrorMessage(null);
+                  }}
+                  placeholder="admin@sitecorp.local"
+                  className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-[#1A7B91]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Contraseña
               </label>
               <div className="relative">
                 <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    setError(false);
+                    setErrorMessage(null);
                   }}
-                  placeholder="admin / superadmin"
-                  className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-[#1A7B91]"
+                  placeholder="Introduce tu contraseña..."
+                  className="w-full pl-9 pr-10 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-[#1A7B91]"
                   autoFocus
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-              {error && (
-                <p className="text-xs text-rose-600 mt-1.5">
-                  Clave incorrecta. Puedes usar &apos;admin&apos; o validar directamente con el botón inferior.
-                </p>
+              {errorMessage && (
+                <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
               )}
             </div>
 
@@ -192,41 +293,107 @@ export function HelpCenterAdminButton({ userEmail = "superadmin@sitecorp.cu" }) 
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#123F55] hover:bg-[#0F3447] text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
             >
               <ShieldCheck className="w-4 h-4 text-[#F49D37]" />
-              <span>{loading ? 'Validando...' : 'Iniciar Sesión como Administrador'}</span>
+              <span>{loading ? 'Verificando Hash Criptográfico...' : 'Iniciar Sesión'}</span>
             </button>
 
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-slate-400 font-medium">o bien</span>
-              </div>
-            </div>
-
-            {/* Direct Validation button */}
-            <button
-              type="button"
-              onClick={handleAutoValidateWithApp}
-              className="w-full flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-[#1A7B91] hover:bg-[#F0F6F9] transition-all text-left text-xs font-medium text-slate-700 group"
-            >
-              <div>
-                <div className="font-semibold text-[#123F55] group-hover:text-[#1A7B91] transition-colors flex items-center gap-1.5">
-                  <span>Autovalidar con sesión de SiteCorp App</span>
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Simula la entrada autenticada de Superadministrador en un clic.
-                </p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#F49D37] group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-            </button>
-
-            <div className="text-[11px] text-slate-400 text-center pt-2">
-              Atajo rápido: Puedes abrir o cerrar este panel pulsando <kbd className="font-mono bg-slate-100 px-1 py-0.5 rounded border border-slate-200 text-slate-600">Ctrl + Shift + A</kbd> en cualquier momento.
+            <div className="text-[11px] text-slate-400 text-center pt-1">
+              Seguridad: La contraseña se comprueba mediante función hash SHA-256 unidireccional. Ninguna credencial está escrita en el código.
             </div>
           </form>
-        ) : (
+        )}
+
+        {/* CUSTOM PASSWORD TAB */}
+        {activeTab === 'custom' && (
+          <form onSubmit={handleChangePassword} className="mt-5 space-y-4">
+            <div className="p-3 bg-[#F0F6F9] border border-[#B8D6E3] rounded-xl text-xs text-slate-700 leading-relaxed">
+              <p className="font-semibold text-[#123F55] mb-1">
+                Cambio seguro de contraseña
+              </p>
+              <p>
+                Al cambiar la clave, se calcula su nuevo hash SHA-256. El código del repositorio nunca conoce ni almacena tu contraseña en texto plano.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Usuario a Modificar
+              </label>
+              <select
+                value={targetEmail}
+                onChange={(e) => setTargetEmail(e.target.value)}
+                className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-[#1A7B91]"
+              >
+                {adminUsers.map((u) => (
+                  <option key={u.id} value={u.email}>
+                    {u.name} ({u.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Nueva Contraseña
+              </label>
+              <div className="relative">
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 4 caracteres..."
+                  className="w-full pl-3 pr-10 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-[#1A7B91]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Confirmar Nueva Contraseña
+              </label>
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repite la nueva contraseña..."
+                className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-[#1A7B91]"
+              />
+            </div>
+
+            {changeError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{changeError}</span>
+              </div>
+            )}
+
+            {changeSuccess && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 shrink-0" />
+                <span>{changeSuccess}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#123F55] hover:bg-[#0F3447] text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+            >
+              <Check className="w-4 h-4 text-[#F49D37]" />
+              <span>Guardar Nueva Contraseña</span>
+            </button>
+          </form>
+        )}
+
+        {/* CODE INTEGRATION TAB */}
+        {activeTab === 'code' && (
           <div className="mt-4 space-y-4">
             <div className="p-3 bg-[#F0F6F9] border border-[#B8D6E3] rounded-xl text-xs text-slate-700 leading-relaxed">
               <p className="font-semibold text-[#123F55] mb-1 flex items-center gap-1.5">
@@ -255,7 +422,6 @@ export function HelpCenterAdminButton({ userEmail = "superadmin@sitecorp.cu" }) 
               </pre>
             </div>
 
-            {/* Test button to generate a real signed link right now */}
             <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2">
               <button
                 type="button"

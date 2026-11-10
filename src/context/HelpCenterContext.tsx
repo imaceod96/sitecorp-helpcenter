@@ -2,6 +2,17 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Category, Article, ViewState } from '../types/helpCenter';
 import { INITIAL_CATEGORIES, INITIAL_ARTICLES, ADMIN_AUTHOR } from '../data/initialData';
 import { verifySignedToken } from '../utils/signedAuth';
+import {
+  AdminUser,
+  getAdminUsers,
+  authenticateAdmin,
+  getCurrentAdminUser,
+  clearCurrentAdminUser,
+  changeUserPassword as apiChangeUserPassword,
+  createNewAdminUser,
+  deleteAdminUser as apiDeleteAdminUser,
+  verifyAdminPassword,
+} from '../utils/security';
 
 const STORAGE_KEY_CATEGORIES = 'sitecorp_help_categories_v2';
 const STORAGE_KEY_ARTICLES = 'sitecorp_help_articles_v2';
@@ -14,15 +25,24 @@ interface HelpCenterContextType {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   
-  // Superadmin authentication & mode
+  // Superadmin & Multi-user authentication
   isAdminMode: boolean;
   setIsAdminMode: (admin: boolean) => void;
   authNotification: string | null;
   clearAuthNotification: () => void;
   isAdminLoginModalOpen: boolean;
   setIsAdminLoginModalOpen: (open: boolean) => void;
-  loginAsAdmin: (tokenOrPassword: string) => boolean;
+  adminUsers: AdminUser[];
+  currentAdminUser: AdminUser | null;
+  loginWithCredentials: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginAsAdmin: (password: string) => Promise<boolean>;
   logoutAdmin: () => void;
+  updateUserPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  addUser: (data: { email: string; name: string; role: AdminUser['role']; plainPassword: string }) => Promise<{ success: boolean; error?: string }>;
+  removeUser: (userId: string) => { success: boolean; error?: string };
+  isUserManagerModalOpen: boolean;
+  openUserManagerModal: () => void;
+  closeUserManagerModal: () => void;
   
   // Navigation
   goToHome: () => void;
@@ -114,6 +134,9 @@ export const HelpCenterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const [authNotification, setAuthNotification] = useState<string | null>(null);
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
+  const [isUserManagerModalOpen, setIsUserManagerModalOpen] = useState(false);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>(() => getAdminUsers());
+  const [currentAdminUser, setCurrentAdminUser] = useState<AdminUser | null>(() => getCurrentAdminUser());
   const [viewState, setViewState] = useState<ViewState>({ type: 'home' });
   const [searchQuery, setSearchQuery] = useState('');
   const [votedArticles, setVotedArticles] = useState<Record<string, boolean>>({});
@@ -245,16 +268,50 @@ export const HelpCenterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Superadmin authentication
-  const loginAsAdmin = (keyOrToken: string): boolean => {
-    // Validates against Superadmin key or SiteCorp token
-    const normalized = keyOrToken.trim();
-    if (normalized === 'admin' || normalized === 'superadmin' || normalized === 'sitecorp' || normalized.length >= 4) {
+  // Superadmin & Multi-user authentication via cryptographic hash (no plain credentials in code)
+  const loginWithCredentials = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const res = await authenticateAdmin(email, password);
+    if (res.success && res.user) {
+      setCurrentAdminUser(res.user);
       setIsAdminMode(true);
       try {
         localStorage.setItem(STORAGE_KEY_ADMIN_AUTH, 'true');
       } catch {}
       setIsAdminLoginModalOpen(false);
+      setAuthNotification(`Sesión iniciada como ${res.user.name} (${res.user.email})`);
+      setAdminUsers(getAdminUsers());
+      return { success: true };
+    }
+    return { success: false, error: res.error || 'Credenciales inválidas' };
+  };
+
+  const loginAsAdmin = async (password: string): Promise<boolean> => {
+    // Intenta autenticar con el usuario administrador por defecto
+    const users = getAdminUsers();
+    const defaultUser = users[0];
+    const defaultEmail = defaultUser ? defaultUser.email : 'admin@sitecorp.local';
+    const res = await authenticateAdmin(defaultEmail, password);
+    if (res.success && res.user) {
+      setCurrentAdminUser(res.user);
+      setIsAdminMode(true);
+      try {
+        localStorage.setItem(STORAGE_KEY_ADMIN_AUTH, 'true');
+      } catch {}
+      setIsAdminLoginModalOpen(false);
+      setAuthNotification(`Sesión iniciada como ${res.user.name}`);
+      setAdminUsers(getAdminUsers());
+      return true;
+    }
+
+    // Comprobación de respaldo contra cualquier clave de administrador registrada
+    const isValid = await verifyAdminPassword(password);
+    if (isValid) {
+      setIsAdminMode(true);
+      try {
+        localStorage.setItem(STORAGE_KEY_ADMIN_AUTH, 'true');
+      } catch {}
+      setIsAdminLoginModalOpen(false);
+      setAuthNotification('Modo Administrador activado');
       return true;
     }
     return false;
@@ -262,10 +319,48 @@ export const HelpCenterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const logoutAdmin = () => {
     setIsAdminMode(false);
+    clearCurrentAdminUser();
+    setCurrentAdminUser(null);
     try {
       localStorage.removeItem(STORAGE_KEY_ADMIN_AUTH);
     } catch {}
   };
+
+  const updateUserPassword = async (userId: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    const res = await apiChangeUserPassword(userId, newPassword);
+    if (res.success) {
+      setAdminUsers(getAdminUsers());
+      const updatedCur = getCurrentAdminUser();
+      if (updatedCur) {
+        setCurrentAdminUser(updatedCur);
+      }
+    }
+    return res;
+  };
+
+  const addUser = async (data: { email: string; name: string; role: AdminUser['role']; plainPassword: string }): Promise<{ success: boolean; error?: string }> => {
+    const res = await createNewAdminUser(data);
+    if (res.success) {
+      setAdminUsers(getAdminUsers());
+    }
+    return res;
+  };
+
+  const removeUser = (userId: string): { success: boolean; error?: string } => {
+    const res = apiDeleteAdminUser(userId);
+    if (res.success) {
+      setAdminUsers(getAdminUsers());
+      const cur = getCurrentAdminUser();
+      if (!cur || cur.id === userId) {
+        setIsAdminMode(false);
+        setCurrentAdminUser(null);
+      }
+    }
+    return res;
+  };
+
+  const openUserManagerModal = () => setIsUserManagerModalOpen(true);
+  const closeUserManagerModal = () => setIsUserManagerModalOpen(false);
 
   // Category Actions
   const addCategory = (categoryData: Omit<Category, 'order'>) => {
@@ -416,8 +511,17 @@ export const HelpCenterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         clearAuthNotification,
         isAdminLoginModalOpen,
         setIsAdminLoginModalOpen,
+        adminUsers,
+        currentAdminUser,
+        loginWithCredentials,
         loginAsAdmin,
         logoutAdmin,
+        updateUserPassword,
+        addUser,
+        removeUser,
+        isUserManagerModalOpen,
+        openUserManagerModal,
+        closeUserManagerModal,
         goToHome,
         goToCategory,
         goToArticle,

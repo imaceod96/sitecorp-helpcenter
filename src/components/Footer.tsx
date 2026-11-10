@@ -11,6 +11,7 @@ export const Footer: React.FC = () => {
     setIsSupportModalOpen,
     setIsAdminLoginModalOpen,
     isAdminMode,
+    logoutAdmin,
   } = useHelpCenter();
 
   return (
@@ -151,20 +152,29 @@ export const Footer: React.FC = () => {
             <span className="hover:text-white cursor-pointer transition-colors">Privacidad</span>
             <span aria-hidden="true">·</span>
             
-            {/* Discreet Superadmin Lock Button */}
+            {/* Discreet Admin Mode Button at the end */}
             {!isAdminMode ? (
               <button
                 onClick={() => setIsAdminLoginModalOpen(true)}
-                className="hover:text-white text-slate-500 transition-colors inline-flex items-center gap-1 focus:outline-none"
-                title="Acceso restringido para Superadministrador (Ctrl+Shift+A)"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-slate-700/60 rounded-md hover:border-slate-500 bg-slate-800/30 transition-colors focus:outline-none"
+                title="Acceso al Modo Administrador"
               >
-                <Lock className="w-3 h-3" />
-                <span>Superadmin</span>
+                <Lock className="w-3 h-3 text-slate-400" />
+                <span>Modo Admin</span>
               </button>
             ) : (
-              <span className="text-[#F49D37] font-semibold">
-                Superadmin Activo
-              </span>
+              <div className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#F49D37] border border-[#D88224]/50 rounded-md bg-[#F49D37]/10">
+                  <span>Modo Admin: Activo</span>
+                </span>
+                <button
+                  onClick={logoutAdmin}
+                  className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors underline"
+                  title="Salir del modo administrador"
+                >
+                  Salir
+                </button>
+              </div>
             )}
           </div>
         </div>

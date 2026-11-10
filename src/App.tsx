@@ -9,6 +9,7 @@ import { ArticleView } from './components/ArticleView';
 import { CreateCategoryModal } from './components/CreateCategoryModal';
 import { CreateArticleModal } from './components/CreateArticleModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
+import { UserManagerModal } from './components/UserManagerModal';
 import { SupportModal } from './components/SupportModal';
 import { ImageLightboxModal } from './components/ImageLightboxModal';
 import { Footer } from './components/Footer';
@@ -179,6 +180,7 @@ const MainContent: React.FC = () => {
       <CreateCategoryModal />
       <CreateArticleModal />
       <AdminLoginModal />
+      <UserManagerModal />
       <SupportModal />
       <ImageLightboxModal />
     </main>
